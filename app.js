@@ -41,23 +41,26 @@ app.post('/users/signup', function(req, res) {
 	}
 	// validate the user input
 
-	// check if the email already exists
-
 	// check for multiple logins in a short period of time
 
+	// check if the email already exists
+	users.userExists(user.email)
+
 	// create the password hash
-	helpers.generateHashedPassword(user.pw)
+	.then(helpers.generateHashedPassword)
 	.then(function (hash) {
 		user.pw = hash;
-		console.log ("User data:" + user.pw);
 		return user;
 	})
+
+	// save to the database
 	.then (users.saveUser)
 	.then (function() {
 		console.log (req.body.email + " registered!");
 		res.send("ok");
 	}, function (error) {
 		console.log (error);
+		res.send(error);
 	});
 });
 
