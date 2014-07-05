@@ -2,6 +2,8 @@ var config    = require("./config"),
 	sqlite3   = require("sqlite3").verbose(),
 	nodefn    = require('when/node'),
 	when      = require("when"),
+	nodefn         = require('when/node'),
+	bcrypt         = require('bcryptjs'),
 	sanitizer = require("sanitizer");
 
 users = 
@@ -55,6 +57,37 @@ users =
 		    return when.reject(error);
 		}
 		return when.resolve(user.pw);
+	},
+
+	getUserByEmail: function (email) {
+		var db = new sqlite3.Database(config.dbfile);
+		var deferred = when.defer();
+
+		db.all("SELECT id, email, password FROM users WHERE email = ?", email, function (err, records) {
+				if (err)
+					deferred.reject(err);
+
+				if (records.length == 0)
+					deferred.reject(new Error('User doesn\'t exist.'));	
+
+				deferred.resolve(records);	
+		});
+		
+		db.close();
+
+		return deferred.promise;
+	},
+
+	authenticate: function (user) {
+		return this.getUserByEmail(user.email).then(function (records) {
+			return nodefn.call(bcrypt.compare, user.pw, records[0].password).then(function (matched) {
+			    if (!matched) {
+			            return when.reject(new Error(user.email + ' login attempt - incorrect password.'));
+			    }
+
+			    return when.resolve(matched);
+			});
+		});
 	}
 
 }
