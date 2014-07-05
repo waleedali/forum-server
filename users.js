@@ -1,7 +1,8 @@
-var config  = require("./config"),
-	sqlite3 = require("sqlite3").verbose(),
-	nodefn = require('when/node'),
-	when    = require("when");
+var config    = require("./config"),
+	sqlite3   = require("sqlite3").verbose(),
+	nodefn    = require('when/node'),
+	when      = require("when"),
+	sanitizer = require("sanitizer");
 
 users = 
 {
@@ -44,6 +45,16 @@ users =
 		db.close();
 
 		return deferred.promise;
+	},
+
+	sanitizeUser: function (user) {
+		try {
+			user.email = sanitizer.sanitize(user.email)
+			user.pw = sanitizer.sanitize(user.pw)
+		} catch (error) {
+		    return when.reject(error);
+		}
+		return when.resolve(user.pw);
 	}
 
 }

@@ -17,34 +17,40 @@ var db = new sqlite3.Database(dbfile);
 // parse the body of the request and then it sets the body property on the request object.
 app.use(express.bodyParser());
 
-var auth = express.basicAuth(function(user, pass, callback) {
- 	var result = (user === 'testUser' && pass === 'testPass');
- 	console.log ("auth attempt: " + user + " " + pass + " " + result);
-
+// Create the database if it doesn't exist
+var exists = fs.existsSync(dbfile);
+db.serialize(function() {
+  if(!exists) {
+    db.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT, password TEXT)");
+    db.run("CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, post TEXT, date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+  }
 });
+db.close();
 
 
 // routes
-app.get('/home', auth, function(req, res) {
- res.send('Hello World');
-});
-
-app.get('/', function(req, res) {
- res.send('Hello, welcome to the forum server');
-});
-
 app.post('/users/signup', function(req, res) {
 	
 	var user = {
 		email: req.body.email,
 		pw: req.body.password
 	}
-	// validate the user input
 
-	// check for multiple logins in a short period of time
+	// sanitize input for any unsafe HTML - XSS protection
+	users.sanitizeUser(user)
+
+	// validate the user input
+	.then(helpers.validatePasswordLength)
+	.then(function () {
+		return user.email;
+	})
+	.then(helpers.validateEmail)
 
 	// check if the email already exists
-	users.userExists(user.email)
+	.then(users.userExists)
+	.then(function () {
+		return user.pw;
+	})
 
 	// create the password hash
 	.then(helpers.generateHashedPassword)
@@ -60,21 +66,30 @@ app.post('/users/signup', function(req, res) {
 		res.send("ok");
 	}, function (error) {
 		console.log (error);
-		res.send(error);
+		res.json(401, {error: error.message});
 	});
 });
 
+// simple authentication function
+var auth = express.basicAuth(function(user, pass) {
+	var user = {
+		email: user,
+		pw: pass
+	}
 
-// Create the database if it doesn't exist
-var exists = fs.existsSync(dbfile);
-db.serialize(function() {
-  if(!exists) {
-    db.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT, password TEXT)");
-    db.run("CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, post TEXT, date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
-  }
+ 	var result = (user.email === 'waleed.ali@gmail.com' && user.pw === 'pass1234');
+ 	console.log(user);
+ 	console.log ("auth attempt result: " + result);
+ 	return result;
 });
-db.close();
 
+app.post('/posts/add', auth, function(req, res) {
+ res.send('Hello World');
+});
+
+app.get('/', function(req, res) {
+ res.send('Hello, welcome to the forum server');
+});
 
 app.listen(process.env.PORT || port);
 console.log("forum-server started - listening on port " + port);
