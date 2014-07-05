@@ -2,8 +2,8 @@ var config    = require("./config"),
 	sqlite3   = require("sqlite3").verbose(),
 	nodefn    = require('when/node'),
 	when      = require("when"),
-	nodefn         = require('when/node'),
-	bcrypt         = require('bcryptjs'),
+	nodefn    = require('when/node'),
+	bcrypt    = require('bcryptjs'),
 	sanitizer = require("sanitizer");
 
 users = 

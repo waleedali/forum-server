@@ -130,6 +130,25 @@ app.post('/posts/add', auth, function(req, res) {
 // get all posts for a specific user
 app.get('/posts/get', auth, function(req, res) {
 
+	// get the user email from the request header
+	var useremail = helpers.getUserEmailFromRequestHeader(req);
+
+	// get user's id
+	users.getUserByEmail(useremail)
+	.then(function (records) {
+		return records[0].id;
+	})
+
+	// get user's posts
+	.then(posts.getPostsByUserID)
+
+	.then (function(records) {
+		res.json(200, records);
+	}, function (error) {
+		console.log (error);
+		res.json(401, {error: error.message});
+	});
+
 
 });
 

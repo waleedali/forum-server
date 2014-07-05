@@ -26,3 +26,5 @@ node_modules
 
 # Database file
 data/*.db
+data/.DS_Store
+.DS_Store

@@ -2,6 +2,7 @@ var config    = require("./config"),
 	sqlite3   = require("sqlite3").verbose(),
 	nodefn    = require('when/node'),
 	when      = require("when"),
+	_         = require("lodash"),
 	sanitizer = require("sanitizer");
 
 posts = 
@@ -25,7 +26,34 @@ posts =
 		    return when.reject(error);
 		}
 		return when.resolve(post);
-	}
+	},
+
+	getPostsByUserID: function (user_id) {
+		var db = new sqlite3.Database(config.dbfile);
+		var deferred = when.defer();
+
+		db.all("SELECT * FROM posts WHERE user_id = ?", user_id, function (err, records) {
+				if (err)
+					deferred.reject(err);
+
+				if (records.length == 0)
+					deferred.reject(new Error('No posts yet.'));
+
+				// remove the user_id attribute from the posts array
+				_.each(records, function(item) {
+					if(item) {
+						console.log(item);
+						delete item.user_id;
+					}
+				})
+
+				deferred.resolve(records);
+		});
+
+		db.close();
+
+		return deferred.promise;
+	},
 }
 
 module.exports = posts;
