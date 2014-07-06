@@ -1,19 +1,29 @@
-var express = require('express');
-var fs      = require("fs");
-var sqlite3 = require("sqlite3").verbose();
-var helpers = require("./helpers");
-var config  = require("./config");
-var users   = require("./users");
-var posts   = require("./posts");
-var when    = require("when");
+var express    = require('express');
+var fs         = require("fs");
+var path = require('path');
+var sqlite3    = require("sqlite3").verbose();
+var helpers    = require("./helpers");
+var config     = require("./config");
+var users      = require("./users");
+var posts      = require("./posts");
+var when       = require("when");
+var busboy     = require('connect-busboy');
+var sanitizer  = require("sanitizer");
+var sanitizefn = require("sanitize-filename");
 
 var app = express();
 var port = config.port;
 var dbfile = config.dbfile;
 
 
+// file uploads restrictions
+app.use(busboy()); 
+
 // parse the body of the request and then it sets the body property on the request object.
-app.use(express.bodyParser());
+app.use(express.json());
+app.use(express.urlencoded());
+
+
 
 // Create the database if it doesn't exist
 var exists = fs.existsSync(dbfile);
@@ -148,8 +158,139 @@ app.get('/posts/get', auth, function(req, res) {
 		console.log (error);
 		res.json(401, {error: error.message});
 	});
+});
 
 
+
+// file upload api
+app.post('/files/upload', auth, function(req, res) {
+    var fstream;
+    var results = [];
+    req.busboy.on('file', function (fieldname, file, filename) {
+        console.log("Uploading: " + filename); 
+
+        // get the user email from the request header
+ 		var useremail = helpers.getUserEmailFromRequestHeader(req);
+
+ 		users.getUserByEmail(useremail)
+		.then(function (records) {
+	 		var distinationdir = path.join(__dirname, '/uploads/');
+
+	        // create the uploads directory if it doesn't exist
+	        fs.mkdir(distinationdir, function (err) {
+	        	if (err && err.code != 'EEXIST') { 
+	        		console.log(err);
+	        		return;
+	        	}
+
+	        	// create the user's directory if it doesn't exist - the directory name will be the user's ID
+	        	fs.mkdir(path.join(distinationdir, String(records[0].id)), function (err) {
+		        	if (err && err.code != 'EEXIST') { 
+		        		console.log(err);
+		        		return;
+		        	}
+
+		        	// sanitize the filename for any unsafe code
+		        	sanitizer.sanitize(filename);
+	        	
+	        		// Sanitize a string to be safe for use as a file name in 
+	        		// Windows and Unix systems by stripping all control characters and restricted characters
+	        		sanitizefn(filename);
+	        		filename = path.basename(filename);
+
+		        	// for server files safety, the overwrite is not supported
+		        	var filepath = path.join(distinationdir, String(records[0].id), filename);
+		        	var fileexists = fs.existsSync(filepath)
+		        	if (fileexists)
+		        	{
+		        		file.resume();
+		        		console.log("Trying to overwrite existing file. upload will abort.");
+		        		results.push("Overwriting existing files is not supported. please use a different file name");
+		        		return;
+		        	}
+
+					fstream = fs.createWriteStream(filepath);
+					file.pipe(fstream);
+					fstream.on('close', function () {
+					    results.push(filename + " has been successfully uploaded.");
+					});
+
+				});
+
+	        });
+
+	    }, function (err) {
+			console.log(err);
+	    });
+    });
+
+    req.pipe(req.busboy);
+
+    req.busboy.on('finish', function() {
+      console.log('Done!');
+      res.writeHead(200, { Connection: 'close' });
+      res.end(JSON.stringify(results));
+    });
+});
+
+app.get('/files/getmyfiles', auth, function(req, res) {
+	
+	// get the user email from the request header
+	var useremail = helpers.getUserEmailFromRequestHeader(req);
+
+	users.getUserByEmail(useremail)
+	.then(function (records) {
+		var distinationdir = path.join(__dirname, '/uploads/', String(records[0].id));
+	    fs.exists(distinationdir, function (exists) {
+	    	if (exists)
+	    	{
+	    		fs.readdir(distinationdir, function (err, files) {
+	    			console.log(files);
+	    			if (files.length == 0)
+	    				res.json(200, "No files uploaded yet");
+	    			else
+	    				res.json(200, files);
+	    			return;
+	    		});
+	    	}
+	    	else
+	    	{
+	    		res.json(200, "No files uploaded yet");
+	    	}	
+	    });
+	});
+});
+
+app.get('/files/download/:filename', auth, function(req, res) {
+	
+	var filename = req.params.filename;
+
+	// sanitize the filename for any unsafe code
+	sanitizer.sanitize(filename);
+
+	// Sanitize a string to be safe for use as a file name in 
+	// Windows and Unix systems by stripping all control characters and restricted characters
+	sanitizefn(filename);
+	filename = path.basename(filename);
+
+	// get the user email from the request header
+	var useremail = helpers.getUserEmailFromRequestHeader(req);
+
+	users.getUserByEmail(useremail)
+	.then(function (records) {
+		var distinationdir = path.join(__dirname, '/uploads/', String(records[0].id));
+	    fs.exists(distinationdir, function (exists) {
+	    	if (exists)
+	    	{
+	    		var filepath = path.join(distinationdir, filename);
+	    		res.download(filepath);
+	    	}
+	    	else
+	    	{
+	    		res.json(200, "No files uploaded yet");
+	    	}	
+	    });
+	});
 });
 
 app.get('/', function(req, res) {
