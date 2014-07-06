@@ -17,7 +17,12 @@ var dbfile = config.dbfile;
 
 
 // file uploads restrictions
-app.use(busboy()); 
+app.use(busboy({
+  highWaterMark: 1 * 1024 * 1024,
+  limits: {
+    fileSize: 1 * 1024 * 1024 // 1 MB upload limit
+  }
+})); 
 
 // parse the body of the request and then it sets the body property on the request object.
 app.use(express.json());
