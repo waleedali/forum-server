@@ -15,11 +15,11 @@ curl -X POST http://localhost:8080/users/signup -d 'email=waleed.ali@gmail.com&p
 
 ## authentication and adding a post for this user
 curl -u waleed.ali@gmail.com:pass1234 -X POST http://localhost:8080/posts/add -d 'title=New post&body=the post body';
-curl -u waleed@gmail.com:pass1234 -X POST http://localhost:8080/posts/add -d 'title=New post&body=the post body';
+curl -u waleed@gmail.com:hardPassword -X POST http://localhost:8080/posts/add -d 'title=New post title&body=the new post body';
 
 ## get my posts
 curl -u waleed.ali@gmail.com:pass1234 http://localhost:8080/posts/get
-curl -u waleed@gmail.com:pass1234 http://localhost:8080/posts/get
+curl -u waleed@gmail.com:hardPassword http://localhost:8080/posts/get
 
 ## file upload
 curl -u waleed@gmail.com:hardPassword -F filedata=@Pictures/melting_dribble.png http://localhost:8080/files/upload
